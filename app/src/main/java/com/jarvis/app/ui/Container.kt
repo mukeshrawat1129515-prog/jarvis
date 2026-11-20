@@ -1,13 +1,11 @@
 package com.jarvis.app.ui
 
 import android.content.Context
-import androidx.compose.runtime.Composable
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
+import com.jarvis.app.BuildConfig
 import com.jarvis.app.JarvisApp
 import com.jarvis.app.data.GeminiApi
 import com.jarvis.app.data.PhoneAccess
-import com.jarvis.app.viewmodels.JarvisViewModel
+import com.jarvis.app.viewmodel.JarvisViewModel
 
 object JarvisContainer {
     private var geminiApi: GeminiApi? = null
@@ -25,17 +23,10 @@ object JarvisContainer {
         }
     }
 
-    fun provideGeminiApi(): GeminiApi = geminiApi ?: error("JarvisContainer not initialized")
-    fun providePhoneAccess(): PhoneAccess = phoneAccess ?: error("JarvisContainer not initialized")
-
-    fun provideViewModel(): JarvisViewModel {
-        return ViewModelProvider(
-            object : ViewModelProvider.Factory {
-                @Suppress("UNCHECKED_CAST")
-                override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                    return JarvisViewModel(provideGeminiApi(), providePhoneAccess()) as T
-                }
-            }
-        )[JarvisViewModel::class.java]
+    fun provideViewModel(app: JarvisApp): JarvisViewModel {
+        return JarvisViewModel(
+            geminiApi ?: error("JarvisContainer not initialized"),
+            phoneAccess ?: error("JarvisContainer not initialized")
+        )
     }
 }

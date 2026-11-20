@@ -9,14 +9,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.jarvis.app.data.ChatMessage
-import com.jarvis.app.viewmodels.JarvisState
+import com.jarvis.app.viewmodel.JarvisState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(
     state: JarvisState,
     onSend: (String) -> Unit,
-    onClear: () -> Unit,
+    onErrorShown: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
@@ -24,7 +24,7 @@ fun ChatScreen(
     LaunchedEffect(state.error) {
         state.error?.let {
             snackbarHostState.showSnackbar(it)
-            onClear()
+            onErrorShown()
         }
     }
 
@@ -37,7 +37,6 @@ fun ChatScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            // Header
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -53,7 +52,6 @@ fun ChatScreen(
                 )
             }
 
-            // Messages
             LazyColumn(
                 modifier = Modifier
                     .weight(1f)
@@ -72,7 +70,6 @@ fun ChatScreen(
                 )
             }
 
-            // Input
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -93,14 +90,14 @@ fun ChatScreen(
                     maxLines = 4
                 )
 
-                IconButton(
+                Button(
                     onClick = {
                         onSend(text)
                         text = ""
                     },
                     enabled = text.isNotBlank() && !state.isThinking
                 ) {
-                    Icon(Icons.Default.Send, contentDescription = "Send")
+                    Text("Send")
                 }
             }
         }

@@ -1,12 +1,12 @@
-package com.jarvis.app.viewmodels
+package com.jarvis.app.viewmodel
 
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
+import com.jarvis.app.data.ChatMessage
 import com.jarvis.app.data.GeminiApi
 import com.jarvis.app.data.PhoneAccess
-import com.jarvis.app.data.PhoneState
 import kotlinx.coroutines.*
 
 private const val TAG = "JarvisViewModel"
@@ -16,12 +16,6 @@ data class JarvisState(
     val isThinking: Boolean = false,
     val phoneContext: String = "",
     val error: String? = null
-)
-
-data class ChatMessage(
-    val text: String,
-    val isUser: Boolean,
-    val timestamp: Long = System.currentTimeMillis()
 )
 
 class JarvisViewModel(
@@ -54,32 +48,17 @@ class JarvisViewModel(
 
         scope.launch {
             try {
-                withContext(Dispatchers.IO) {
-                    val prompt = buildPrompt(userMessage)
-                    val result = CompletableDeferred<String>()
-
+                val response = withContext(Dispatchers.IO) {
                     geminiApi.generateContent(
-                        prompt = prompt,
-                        systemInstruction = SYSTEM_INSTRUCTION,
-                        jsonMode = false,
-                        onResult = { text ->
-                            result.complete(text)
-                        },
-                        onError = { err ->
-                            result.completeExceptionally(Exception(err))
-                        }
+                        prompt = buildPrompt(userMessage),
+                        systemInstruction = SYSTEM_INSTRUCTION
                     )
-
-                    val response = result.await()
-                    val assistantMsg = ChatMessage(text = response, isUser = false)
-
-                    withContext(Dispatchers.Main) {
-                        state = state.copy(
-                            messages = state.messages + assistantMsg,
-                            isThinking = false
-                        )
-                    }
                 }
+                val assistantMsg = ChatMessage(text = response.trim(), isUser = false)
+                state = state.copy(
+                    messages = state.messages + assistantMsg,
+                    isThinking = false
+                )
             } catch (e: Exception) {
                 state = state.copy(
                     isThinking = false,

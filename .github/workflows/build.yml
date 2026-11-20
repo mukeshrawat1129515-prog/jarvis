@@ -20,51 +20,36 @@ jobs:
           java-version: '17'
 
       - name: Setup Gradle
-        uses: gradle/gradle-build-action@v3
+        uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '8.5'
+          gradle-version: '8.9'
 
-      - name: Decode Keystore
-        run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > keystore.jks
-          echo "${{ secrets.KEYSTORE_PASSWORD }}" > keystore.password
-          echo "${{ secrets.KEY_ALIAS }}" > keystore.alias
-          echo "${{ secrets.KEY_ALIAS_PASSWORD }}" > keystore.alias.password
-
-      - name: Build APK
+      - name: Build debug APK
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
-          ./gradlew assembleRelease
-
-      - name: Sign APK
-        run: |
-          jarsigner -verbose -sigalg SHA256withRSA -digestalg SHA256 \
-            -keystore keystore.jks -storepass $(cat keystore.password) \
-            -keypass $(cat keystore.alias.password) \
-            app/build/outputs/apk/release/app-release-unsigned.apk \
-            $(cat keystore.alias)
-          jarsigner -verify app/build/outputs/apk/release/app-release-unsigned.apk
+          gradle assembleDebug --no-daemon
 
       - name: Rename APK
         run: |
-          mv app/build/outputs/apk/release/app-release-unsigned.apk \
-             app/build/outputs/apk/release/jarvis.apk
+          mkdir -p out
+          cp app/build/outputs/apk/debug/app-debug.apk out/jarvis.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: jarvis-apk
-          path: app/build/outputs/apk/release/jarvis.apk
+          path: out/jarvis.apk
           retention-days: 30
 
       - name: Create Release
         if: github.event_name == 'workflow_dispatch'
-        run: |
-          gh release create "build-$(date +%Y%m%d)" \
-            app/build/outputs/apk/release/jarvis.apk \
-            --title "Jarvis APK $(date +%Y%m%d)" \
-            --notes "Auto-built APK" \
-            --prerelease
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="jarvis-build-$(date +%Y%m%d-%H%M)"
+          cp app/build/outputs/apk/debug/app-debug.apk out/jarvis.apk
+          gh release create "$TAG" out/jarvis.apk \
+            --title "Jarvis APK $(date +%Y%m%d)" \
+            --notes "Auto-built debug APK (Gemini 3.5 flash)" \
+            --prerelease

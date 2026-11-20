@@ -1,123 +1,56 @@
 package com.jarvis.app.data
 
+import com.jarvis.app.BuildConfig
 import com.google.gson.Gson
-import com.google.gson.annotations.SerializedName
-import okhttp3.*
-import java.io.IOException
+import com.google.gson.JsonObject
+import com.google.gson.JsonParser
+import okhttp3.MediaType
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody
+import okhttp3.RequestBody.Companion.toRequestBody
 import java.util.concurrent.TimeUnit
 
-data class GeminiRequest(
-    val contents: List<GeminiContent>,
-    val systemInstruction: GeminiContent? = null,
-    val generationConfig: GeminiConfig? = null
-)
-
-data class GeminiContent(
-    val role: String = "user",
-    val parts: List<GeminiPart>
-)
-
-data class GeminiPart(val text: String)
-
-data class GeminiConfig(
-    val temperature: Double = 0.2,
-    val responseMimeType: String? = null
-)
-
-data class GeminiResponse(
-    val candidates: List<GeminiCandidate>? = null,
-    val error: GeminiError? = null
-)
-
-data class GeminiCandidate(
-    val content: GeminiContent? = null
-)
-
-data class GeminiError(
-    val message: String? = null,
-    val code: Int? = null
-)
-
 class GeminiApi(
-    private val apiKey: String,
-    private val baseUrl: String = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent"
+    private val apiKey: String = BuildConfig.GEMINI_API_KEY,
+    private val baseUrl: String = BuildConfig.GEMINI_BASE_URL
 ) {
     private val gson = Gson()
+    private val json: MediaType = "application/json; charset=utf-8".toMediaType()
     private val client = OkHttpClient.Builder()
-        .connectTimeout(60, TimeUnit.SECONDS)
-        .readTimeout(90, TimeUnit.SECONDS)
+        .connectTimeout(30, TimeUnit.SECONDS)
         .writeTimeout(60, TimeUnit.SECONDS)
+        .readTimeout(120, TimeUnit.SECONDS)
         .addInterceptor { chain ->
-            val original = chain.request()
-            val request = original.newBuilder()
+            chain.request().newBuilder()
                 .addHeader("Content-Type", "application/json")
                 .addHeader("x-goog-api-key", apiKey)
                 .build()
-            chain.proceed(request)
+                .let { chain.proceed(it) }
         }
         .build()
 
-    fun generateContent(
-        prompt: String,
-        systemInstruction: String? = null,
-        jsonMode: Boolean = true,
-        onResult: (String) -> Unit,
-        onError: (String) -> Unit
-    ) {
-        val parts = listOf(GeminiPart(prompt))
-        val content = GeminiContent(role = "user", parts = parts)
-
-        val config = GeminiConfig(
-            temperature = 0.2,
-            responseMimeType = if (jsonMode) "application/json" else null
+    fun generateContent(prompt: String, systemInstruction: String? = null): String {
+        val contents = listOf(
+            mapOf("role" to "user", "parts" to listOf(mapOf("text" to prompt)))
         )
-
-        val sysContent = systemInstruction?.let {
-            GeminiContent(role = "user", parts = listOf(GeminiPart(it)))
+        val body = mapOf(
+            "systemInstruction" to mapOf("parts" to listOf(mapOf("text" to systemInstruction))),
+            "contents" to contents,
+            "generationConfig" to mapOf("temperature" to 0.7, "maxOutputTokens" to 2048)
+        )
+        val json = gson.toJson(body)
+        val reqBody = json.toRequestBody(json)
+        val request = Request.Builder().url(baseUrl).post(reqBody).build()
+        client.newCall(request).execute().use { resp ->
+            val text = resp.body?.string().orEmpty()
+            if (!resp.isSuccessful) throw RuntimeException("HTTP ${resp.code}: ${text.take(300)}")
+            val root = JsonParser.parseString(text).asJsonObject
+            val cands = root.getAsJsonArray("candidates")
+                ?: throw RuntimeException("No candidates in response")
+            val parts = cands[0].asJsonObject.getAsJsonObject("content").getAsJsonArray("parts")
+            return parts.joinToString("\n") { it.asJsonObject.get("text").asString }
         }
-
-        val request = GeminiRequest(
-            contents = listOf(content),
-            systemInstruction = sysContent,
-            generationConfig = config
-        )
-
-        val json = gson.toJson(request)
-        val body = RequestBody.create(
-            MediaType.parse("application/json; charset=utf-8"),
-            json
-        )
-
-        val req = Request.Builder()
-            .url(baseUrl)
-            .post(body)
-            .build()
-
-        client.newCall(req).enqueue(object : Callback {
-            override fun onFailure(call: Call, e: IOException) {
-                onError("Network error: ${e.message}")
-            }
-
-            override fun onResponse(call: Call, response: Response) {
-                response.body()?.let { rb ->
-                    val text = rb.string()
-                    try {
-                        val resp = gson.fromJson(text, GeminiResponse::class.java)
-                        resp?.error?.let { err ->
-                            onError("Gemini error: ${err.message}")
-                            return
-                        }
-                        val result = resp?.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text
-                        if (result != null) {
-                            onResult(result)
-                        } else {
-                            onError("Empty response from Gemini")
-                        }
-                    } catch (e: Exception) {
-                        onError("Parse error: ${e.message}")
-                    }
-                } ?: onError("Empty response body")
-            }
-        })
     }
 }
