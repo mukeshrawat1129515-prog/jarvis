@@ -24,16 +24,41 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Build debug APK
+      - name: Decode Keystore
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > keystore.jks
+          echo "${{ secrets.KEYSTORE_PASSWORD }}" > keystore.password
+          echo "${{ secrets.KEY_ALIAS }}" > keystore.alias
+          echo "${{ secrets.KEY_ALIAS_PASSWORD }}" > keystore.alias.password
+
+      - name: Build release APK
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_ALIAS_PASSWORD: ${{ secrets.KEY_ALIAS_PASSWORD }}
         run: |
-          gradle assembleDebug --no-daemon
+          gradle assembleRelease --no-daemon
+
+      - name: Sign APK
+        run: |
+          jarsigner -verbose -sigalg SHA256withRSA -digestalg SHA256 \
+            -keystore keystore.jks -storepass $(cat keystore.password) \
+            -keypass $(cat keystore.alias.password) \
+            app/build/outputs/apk/release/app-release-unsigned.apk \
+            $(cat keystore.alias)
+          jarsigner -verify app/build/outputs/apk/release/app-release-unsigned.apk
+
+      - name: Zipalign APK
+        run: |
+          zipalign -f -p 4 \
+            app/build/outputs/apk/release/app-release-unsigned.apk \
+            app/build/outputs/apk/release/app-release.apk
 
       - name: Rename APK
         run: |
           mkdir -p out
-          cp app/build/outputs/apk/debug/app-debug.apk out/jarvis.apk
+          cp app/build/outputs/apk/release/app-release.apk out/jarvis.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
@@ -48,8 +73,8 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TAG="jarvis-build-$(date +%Y%m%d-%H%M)"
-          cp app/build/outputs/apk/debug/app-debug.apk out/jarvis.apk
+          cp app/build/outputs/apk/release/app-release.apk out/jarvis.apk
           gh release create "$TAG" out/jarvis.apk \
             --title "Jarvis APK $(date +%Y%m%d)" \
-            --notes "Auto-built debug APK (Gemini 3.5 flash)" \
+            --notes "Auto-built release APK (Gemini 3.5 flash)" \
             --prerelease
