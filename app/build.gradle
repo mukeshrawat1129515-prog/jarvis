@@ -13,7 +13,7 @@ android {
         targetSdk 33
         versionCode 1
         versionName '1.0'
-        buildConfigField "String", "GEMINI_API_KEY", "\"${System.getenv("GEMINI_API_KEY") ?: ""}\""
+        buildConfigField "String", "GEMINI_API_KEY", "\"${System.getenv("GEMINI_API_KEY")?.trim() ?: ""}\""
         buildConfigField "String", "GEMINI_BASE_URL", "\"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent\""
     }
 
