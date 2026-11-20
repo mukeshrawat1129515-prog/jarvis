@@ -17,7 +17,7 @@ class GeminiApi(
     private val baseUrl: String = BuildConfig.GEMINI_BASE_URL
 ) {
     private val gson = Gson()
-    private val json: MediaType = "application/json; charset=utf-8".toMediaType()
+    private val json: MediaType = "application/json; charset=utf-8".toMediaType()!!
     private val client = OkHttpClient.Builder()
         .connectTimeout(30, TimeUnit.SECONDS)
         .writeTimeout(60, TimeUnit.SECONDS)

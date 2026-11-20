@@ -24,7 +24,7 @@ class PhoneAccess(private val context: Context) {
             hasCamera = pm.hasSystemFeature(PackageManager.FEATURE_CAMERA),
             hasMicrophone = pm.hasSystemFeature(PackageManager.FEATURE_MICROPHONE),
             hasGps = pm.hasSystemFeature(PackageManager.FEATURE_LOCATION_GPS),
-            hasContacts = pm.hasSystemFeature(PackageManager.FEATURE_CONTACTS),
+            hasContacts = pm.hasSystemFeature(PackageManager.FEATURE_TELEPHONY),
             hasSms = pm.hasSystemFeature(PackageManager.FEATURE_TELEPHONY),
             hasCalls = pm.hasSystemFeature(PackageManager.FEATURE_TELEPHONY),
             androidVersion = Build.VERSION.SDK_INT,

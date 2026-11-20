@@ -25,7 +25,7 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    val state by viewModel.state
+                    val state = viewModel.state
 
                     ChatScreen(
                         state = state,
