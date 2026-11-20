@@ -39,21 +39,7 @@ jobs:
           KEY_ALIAS_PASSWORD: ${{ secrets.KEY_ALIAS_PASSWORD }}
         run: |
           gradle assembleRelease --no-daemon
-
-      - name: Sign APK
-        run: |
-          jarsigner -verbose -sigalg SHA256withRSA -digestalg SHA256 \
-            -keystore keystore.jks -storepass $(cat keystore.password) \
-            -keypass $(cat keystore.alias.password) \
-            app/build/outputs/apk/release/app-release-unsigned.apk \
-            $(cat keystore.alias)
-          jarsigner -verify app/build/outputs/apk/release/app-release-unsigned.apk
-
-      - name: Zipalign APK
-        run: |
-          zipalign -f -p 4 \
-            app/build/outputs/apk/release/app-release-unsigned.apk \
-            app/build/outputs/apk/release/app-release.apk
+          ls -la app/build/outputs/apk/release/
 
       - name: Rename APK
         run: |
@@ -76,5 +62,5 @@ jobs:
           cp app/build/outputs/apk/release/app-release.apk out/jarvis.apk
           gh release create "$TAG" out/jarvis.apk \
             --title "Jarvis APK $(date +%Y%m%d)" \
-            --notes "Auto-built release APK (Gemini 3.5 flash)" \
+            --notes "Auto-built signed release APK (Gemini 3.5 flash)" \
             --prerelease
