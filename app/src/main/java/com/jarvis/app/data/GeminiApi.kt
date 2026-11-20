@@ -40,8 +40,8 @@ class GeminiApi(
             "contents" to contents,
             "generationConfig" to mapOf("temperature" to 0.7, "maxOutputTokens" to 2048)
         )
-        val json = gson.toJson(body)
-        val reqBody = json.toRequestBody(json)
+        val bodyJson = gson.toJson(body)
+        val reqBody = bodyJson.toRequestBody(this.json)
         val request = Request.Builder().url(baseUrl).post(reqBody).build()
         client.newCall(request).execute().use { resp ->
             val text = resp.body?.string().orEmpty()
